@@ -1,0 +1,110 @@
+server:
+  port: 9001
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+
+        # ── Onboarding / Auth / Profile ──────────────────────────────────────────
+        - id: onboarding-auth
+          uri: lb://ONBOARDING-SERVICE
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=0
+
+        - id: onboarding-profile
+          uri: lb://ONBOARDING-SERVICE
+          predicates:
+            - Path=/api/profile/**
+          filters:
+            - StripPrefix=0
+
+        - id: onboarding-restful
+          uri: lb://ONBOARDING-SERVICE
+          predicates:
+            - Path=/restful/v1/onboarding/**
+          filters:
+            - StripPrefix=0
+
+        # ── Medicine Catalog ─────────────────────────────────────────────────────
+        - id: medicine-catalog
+          uri: lb://MEDICINE-CATALOG-SERVICE
+          predicates:
+            - Path=/api/medicines/**
+          filters:
+            - StripPrefix=0
+
+        # ── Orders (cart, orders, prescriptions, returns) ────────────────────────
+        - id: order-cart-restful
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/restful/v1/order/**
+          filters:
+            - StripPrefix=0
+
+        - id: order-cart
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - StripPrefix=0
+
+        - id: order-orders
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=0
+
+        - id: order-prescriptions
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/prescriptions/**
+          filters:
+            - StripPrefix=0
+
+        - id: order-returns
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/returns/**
+          filters:
+            - StripPrefix=0
+
+        # ── Notifications ────────────────────────────────────────────────────────
+        - id: notifications
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=0
+
+        # ── Payments ─────────────────────────────────────────────────────────────
+        - id: payments
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=0
+
+        # ── Admin ─────────────────────────────────────────────────────────────────
+        - id: admin
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - StripPrefix=0
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    preferIpAddress: true
