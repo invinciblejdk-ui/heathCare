@@ -54,5 +54,12 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.send(userId, title, message, notifType, email));
     }
 
+    /** Trigger Firebase Push Notification */
+    @PostMapping("/push")
+    public ResponseEntity<Void> sendPush(@RequestBody com.healthCare.notification.dto.PushNotificationRequest request) {
+        notificationService.sendPushNotification(request.getTitle(), request.getMessage(), request.getToken(), request.getTopic());
+        return ResponseEntity.accepted().build();
+    }
+
     private Long getUserId(Authentication auth) { return (Long) auth.getDetails(); }
 }

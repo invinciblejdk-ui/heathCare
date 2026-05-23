@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 @Data
 public class AddressResponse {
 
+    private Long id;
     private Long userId;
     private String fullName;
     private String mobileNumber;

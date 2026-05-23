@@ -47,6 +47,29 @@ public class NotificationService {
         return saved;
     }
 
+    public void sendPushNotification(String title, String message, String token, String topic) {
+        try {
+            com.google.firebase.messaging.Message.Builder builder = com.google.firebase.messaging.Message.builder()
+                    .setNotification(com.google.firebase.messaging.Notification.builder()
+                            .setTitle(title)
+                            .setBody(message)
+                            .build());
+
+            if (token != null && !token.isBlank()) {
+                builder.setToken(token);
+            } else if (topic != null && !topic.isBlank()) {
+                builder.setTopic(topic);
+            } else {
+                return; // Nothing to send to
+            }
+
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().sendAsync(builder.build());
+        } catch (Exception e) {
+            // Log the error but don't fail the request
+            System.err.println("Failed to send Firebase Push Notification: " + e.getMessage());
+        }
+    }
+
     public Page<Notification> getUserNotifications(Long userId, int page, int size) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
     }

@@ -179,7 +179,8 @@ public class AddressService {
 
     private AddressResponse toResponse(Address a) {
         AddressResponse res = new AddressResponse();
-        res.setUserId(a.getId());
+        res.setId(a.getId());
+        res.setUserId(a.getUserProfile() != null ? a.getUserProfile().getId() : null);
         res.setFullName(a.getFullName());
         res.setMobileNumber(a.getMobileNumber());
         res.setStreetLine1(a.getStreetLine1());

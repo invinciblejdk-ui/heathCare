@@ -21,7 +21,7 @@ public class OrderController {
     }
 
     /** Place order from current cart */
-    @PostMapping
+    @PostMapping("/placed")
     public ResponseEntity<OrderResponse> placeOrder(Authentication auth,
                                                      @Valid @RequestBody PlaceOrderRequest req) {
         return ResponseEntity.ok(orderService.placeOrder(getUserId(auth), req));

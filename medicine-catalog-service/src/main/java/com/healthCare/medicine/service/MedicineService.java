@@ -118,4 +118,16 @@ public class MedicineService {
         }
         return dto;
     }
+
+    @Transactional
+    public void deductStock(List<com.healthCare.medicine.dto.DeductStockRequest> requests) {
+        for (com.healthCare.medicine.dto.DeductStockRequest req : requests) {
+            int updatedRows = medicineRepository.deductStock(req.getMedicineId(), req.getQuantity());
+            if (updatedRows == 0) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, 
+                        "Out of stock or medicine not found for ID: " + req.getMedicineId());
+            }
+        }
+    }
 }

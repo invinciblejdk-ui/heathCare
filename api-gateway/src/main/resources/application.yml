@@ -35,6 +35,13 @@ spring:
             - StripPrefix=0
 
         # ── Medicine Catalog ─────────────────────────────────────────────────────
+        - id: medicine-catalog-restful
+          uri: lb://MEDICINE-CATALOG-SERVICE
+          predicates:
+            - Path=/restful/v1/catalog/**
+          filters:
+            - StripPrefix=0
+
         - id: medicine-catalog
           uri: lb://MEDICINE-CATALOG-SERVICE
           predicates:

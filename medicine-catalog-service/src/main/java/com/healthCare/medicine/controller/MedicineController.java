@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/medicines")
+@RequestMapping("/restful/v1/catalog")
 public class MedicineController {
 
     private final MedicineService medicineService;
@@ -72,6 +72,12 @@ public class MedicineController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         medicineService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/deduct-stock")
+    public ResponseEntity<Void> deductStock(@RequestBody List<com.healthCare.medicine.dto.DeductStockRequest> requests) {
+        medicineService.deductStock(requests);
         return ResponseEntity.noContent().build();
     }
 }

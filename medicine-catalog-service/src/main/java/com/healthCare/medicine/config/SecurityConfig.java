@@ -29,6 +29,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Public read-only endpoints
+                        .requestMatchers(HttpMethod.GET, "/restful/v1/catalog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/medicines/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         // Admin write endpoints require authentication (role check via @PreAuthorize)
