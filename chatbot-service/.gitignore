@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.coverage
+.cache
+
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store

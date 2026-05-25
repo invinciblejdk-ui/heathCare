@@ -28,10 +28,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/restful/v1/auth/**",
-                                "/restful/v1/onboarding/login",
-                                "/restful/v1/onboarding/verify",
-                                "/restful/v1/onboarding/mobile/login",
-                                "/restful/v1/onboarding/mobile/verify",
+                                "/restful/v1/onboarding/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
