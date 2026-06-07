@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // API configuration
 //
-// ⚠️  For Android Emulator use: "http://10.0.2.2:9001"
-// ⚠️  For iOS Simulator use:    "http://localhost:9001"
-// ⚠️  For a real device use:    "http://<YOUR_MACHINE_IP>:9001"
-//     (e.g. "http://192.168.0.105:9001")
+// ⚠️  For Android Emulator use: "http://10.0.2.2:9000"
+// ⚠️  For iOS Simulator use:    "http://localhost:9000"
+// ⚠️  For a real device use:    "http://<YOUR_MACHINE_IP>:9000"
+//     (e.g. "http://192.168.0.108:9000")
 // ─────────────────────────────────────────────────────────────────────────────
-export const BASE_URL = 'http://192.168.0.105:9001'; // Change to your machine IP for real device
+export const BASE_URL = 'http://192.168.0.107:9000'; // ✅ Mac IP + API Gateway port
 
 export interface AuthResponse {
   message: string;
@@ -33,9 +33,33 @@ export interface Page<T> {
   size: number;
 }
 
+/** Register or refresh FCM token for the logged-in user.
+ *  Called from HomeScreen on mount to guarantee the token is always saved,
+ *  even if it wasn't available during OTP verify.
+ */
+export async function registerFcmToken(token: string, fcmToken: string): Promise<void> {
+  try {
+    const res = await fetch(`${BASE_URL}/restful/v1/onboarding/registerFcmToken`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ fcmToken, deviceType: 'ANDROID' }),
+    });
+    if (res.ok) {
+      console.log('✅ FCM token registered successfully');
+    } else {
+      console.warn('⚠️ FCM token registration failed:', res.status);
+    }
+  } catch (e: any) {
+    console.warn('⚠️ FCM token registration error:', e?.message);
+  }
+}
+
 /** Step 1 — request OTP to be sent to mobile number */
 export async function requestMobileOtp(mobileNumber: string): Promise<AuthResponse> {
-  const res = await fetch(`${BASE_URL}/api/auth/mobile/login`, {
+  const res = await fetch(`${BASE_URL}/restful/v1/onboarding/mobile/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mobileNumber }),
@@ -47,15 +71,19 @@ export async function requestMobileOtp(mobileNumber: string): Promise<AuthRespon
   return res.json();
 }
 
-/** Step 2 — verify OTP and receive JWT token */
+/** Step 2 — verify OTP and receive JWT token.
+ *  fcmToken: optional Firebase device token — passed during OTP verify so it
+ *  is saved immediately and available for push notifications right after login.
+ */
 export async function verifyMobileOtp(
   mobileNumber: string,
-  otp: string
+  otp: string,
+  fcmToken?: string | null
 ): Promise<AuthResponse> {
-  const res = await fetch(`${BASE_URL}/api/auth/mobile/verify`, {
+  const res = await fetch(`${BASE_URL}/restful/v1/onboarding/mobile/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mobileNumber, otp }),
+    body: JSON.stringify({ mobileNumber, otp, fcmToken: fcmToken ?? null, deviceType: 'ANDROID' }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -66,7 +94,7 @@ export async function verifyMobileOtp(
 
 /** Step 1 — request OTP via email */
 export async function requestEmailOtp(email: string): Promise<AuthResponse> {
-  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+  const res = await fetch(`${BASE_URL}/restful/v1/onboarding/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -78,15 +106,19 @@ export async function requestEmailOtp(email: string): Promise<AuthResponse> {
   return res.json();
 }
 
-/** Step 2 — verify email OTP */
+/** Step 2 — verify email OTP.
+ *  fcmToken: optional Firebase device token — passed during OTP verify so it
+ *  is saved immediately and available for push notifications right after login.
+ */
 export async function verifyEmailOtp(
   email: string,
-  otp: string
+  otp: string,
+  fcmToken?: string | null
 ): Promise<AuthResponse> {
-  const res = await fetch(`${BASE_URL}/api/auth/verify`, {
+  const res = await fetch(`${BASE_URL}/restful/v1/onboarding/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, otp }),
+    body: JSON.stringify({ email, otp, fcmToken: fcmToken ?? null, deviceType: 'ANDROID' }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -381,7 +413,7 @@ const getChatbotUrl = () => {
     const url = new URL(BASE_URL);
     return `${url.protocol}//${url.hostname}:5005`;
   } catch {
-    return 'http://192.168.0.105:5005';
+    return 'http://192.168.0.107:5005';
   }
 };
 

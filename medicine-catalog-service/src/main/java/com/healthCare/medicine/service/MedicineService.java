@@ -28,7 +28,9 @@ public class MedicineService {
 
     public Page<MedicineDTO> search(String q, String brand, Long categoryId, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("name"));
-        return medicineRepository.search(q, brand, categoryId, pageable).map(this::toDTO);
+        String safeQ = (q == null) ? "" : q;
+        String safeBrand = (brand == null) ? "" : brand;
+        return medicineRepository.search(safeQ, safeBrand, categoryId, pageable).map(this::toDTO);
     }
 
     public MedicineDTO getById(Long id) {

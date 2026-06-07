@@ -12,7 +12,8 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
+import messaging from '@react-native-firebase/messaging';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../App';
@@ -35,6 +36,34 @@ export default function OtpScreen({ navigation, route }: Props) {
   const [error, setError]       = useState('');
   const [countdown, setCountdown] = useState(RESEND_TIMEOUT);
   const [canResend, setCanResend] = useState(false);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+
+  // Fetch native Firebase FCM token directly — no Expo servers, no Expo SDK.
+  useEffect(() => {
+    (async () => {
+      try {
+        // Request notification permission from the user
+        const authStatus = await messaging().requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (!enabled) {
+          console.warn('⚠️ Notification permission denied — FCM token not fetched');
+          return;
+        }
+
+        // Get the native Firebase FCM device token directly
+        const token = await messaging().getToken();
+        setFcmToken(token);
+        console.log('✅ Native Firebase FCM Token:', token);
+
+      } catch (err: any) {
+        console.warn('⚠️ FCM token fetch failed:', err?.message ?? err);
+        setFcmToken(null);
+      }
+    })();
+  }, []);
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -114,9 +143,10 @@ export default function OtpScreen({ navigation, route }: Props) {
     setLoading(true);
     setError('');
     try {
+      // Pass fcmToken so the backend saves it immediately on login
       const res = mode === 'mobile'
-        ? await verifyMobileOtp(identifier, code)
-        : await verifyEmailOtp(identifier, code);
+        ? await verifyMobileOtp(identifier, code, fcmToken)
+        : await verifyEmailOtp(identifier, code, fcmToken);
 
       if (res.token) {
         await saveToken(res.token);

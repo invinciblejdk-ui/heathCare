@@ -13,10 +13,10 @@ public interface MedicineRepository extends JpaRepository<Medicine, Long> {
 
     @Query("""
             SELECT m FROM Medicine m WHERE m.isActive = true
-            AND (:q IS NULL OR LOWER(m.name) LIKE LOWER(CONCAT('%', :q, '%'))
+            AND (LOWER(m.name) LIKE LOWER(CONCAT('%', :q, '%'))
                            OR LOWER(m.saltName) LIKE LOWER(CONCAT('%', :q, '%'))
                            OR LOWER(m.chemicalName) LIKE LOWER(CONCAT('%', :q, '%')))
-            AND (:brand IS NULL OR LOWER(m.brand) LIKE LOWER(CONCAT('%', :brand, '%')))
+            AND (LOWER(m.brand) LIKE LOWER(CONCAT('%', :brand, '%')))
             AND (:categoryId IS NULL OR m.category.id = :categoryId)
             """)
     Page<Medicine> search(@Param("q") String q,

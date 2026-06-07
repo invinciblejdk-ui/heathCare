@@ -5,7 +5,10 @@ import com.healthCare.order.dto.PlaceOrderRequest;
 import com.healthCare.order.entity.Cart;
 import com.healthCare.order.entity.Order;
 import com.healthCare.order.entity.OrderItem;
+import com.healthCare.order.kafka.NotificationKafkaProducer;
 import com.healthCare.order.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -21,12 +24,18 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
     private final OrderRepository orderRepository;
     private final CartService cartService;
+    private final NotificationKafkaProducer notificationProducer;
 
-    public OrderService(OrderRepository orderRepository, CartService cartService) {
+    public OrderService(OrderRepository orderRepository,
+                        CartService cartService,
+                        NotificationKafkaProducer notificationProducer) {
         this.orderRepository = orderRepository;
         this.cartService = cartService;
+        this.notificationProducer = notificationProducer;
     }
 
     @Transactional
@@ -64,6 +73,15 @@ public class OrderService {
         // Clear cart after placing order
         cartService.clearCart(userId);
 
+        // 🔔 Publish Kafka notification event — async, non-blocking
+        // email not available at this layer; notification-service will still send FCM push
+        try {
+            notificationProducer.publishOrderPlaced(userId, saved.getId(), null);
+        } catch (Exception e) {
+            // NEVER fail the order if Kafka is unavailable
+            log.warn("⚠️ Could not publish Kafka notification for order #{}: {}", saved.getId(), e.getMessage());
+        }
+
         return toResponse(saved);
     }
 
@@ -93,7 +111,16 @@ public class OrderService {
             throw new RuntimeException("Cannot cancel order that has already been shipped/delivered");
         }
         order.setStatus(Order.OrderStatus.CANCELLED);
-        return toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        // 🔔 Publish cancellation notification
+        try {
+            notificationProducer.publishOrderCancelled(userId, orderId, null);
+        } catch (Exception e) {
+            log.warn("⚠️ Could not publish Kafka cancellation notification for order #{}: {}", orderId, e.getMessage());
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional
@@ -101,7 +128,16 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         order.setStatus(Order.OrderStatus.valueOf(status.toUpperCase()));
-        return toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        // 🔔 Publish status change notification (e.g., admin marks order as SHIPPED)
+        try {
+            notificationProducer.publishOrderStatusUpdate(order.getUserId(), orderId, status, null);
+        } catch (Exception e) {
+            log.warn("⚠️ Could not publish Kafka status notification for order #{}: {}", orderId, e.getMessage());
+        }
+
+        return toResponse(saved);
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
@@ -131,7 +167,6 @@ public class OrderService {
             }).collect(Collectors.toList()));
         }
 
-        // Build simple tracking timeline from current status
         res.setTrackingTimeline(buildTimeline(o));
         return res;
     }

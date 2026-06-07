@@ -28,7 +28,16 @@ spring:
           auth: true
           starttls:
             enable: true
-
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.healthCare.notification.kafka"
+        spring.json.value.default.type: "com.healthCare.notification.kafka.NotificationEvent"
 eureka:
   client:
     serviceUrl:
@@ -38,3 +47,20 @@ eureka:
 
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+# ── Firebase Cloud Messaging ────────────────────────────────────────────────
+firebase:
+  service-account-path: classpath:firebase-service-account.json
+
+# ── Onboarding service base URL (for fetching FCM tokens via /api/internal/**) ──
+onboarding-service:
+  url: http://localhost:9001
+
+# ── Apache Kafka ──────────────────────────────────────────────────────────────
+
+# ── Kafka Topic Names ─────────────────────────────────────────────────────────
+kafka:
+  topics:
+    notification-events: notification-events
+
+

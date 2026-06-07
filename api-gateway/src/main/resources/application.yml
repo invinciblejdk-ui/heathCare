@@ -34,11 +34,20 @@ spring:
           filters:
             - StripPrefix=0
 
+        # ── Onboarding / Internal (service-to-service: FCM token lookup) ─────────
+        - id: onboarding-internal
+          uri: lb://ONBOARDING-SERVICE
+          predicates:
+            - Path=/api/internal/**
+          filters:
+            - StripPrefix=0
+
+
         # ── Medicine Catalog ─────────────────────────────────────────────────────
         - id: medicine-catalog
           uri: lb://MEDICINE-CATALOG-SERVICE
           predicates:
-            - Path=/api/medicines/**
+            - Path=/api/medicines/**, /restful/v1/medicine/**
           filters:
             - StripPrefix=0
 
