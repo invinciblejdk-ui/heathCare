@@ -8,11 +8,15 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
+import messaging from '@react-native-firebase/messaging';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { clearAll } from '../utils/storage';
+import { clearAll, getToken } from '../utils/storage';
+import { registerFcmToken } from '../services/api';
 
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Home'> };
 
@@ -49,6 +53,32 @@ export default function HomeScreen({ navigation }: Props) {
     await clearAll();
     navigation.replace('Login');
   };
+
+  // ── Register FCM token on every Home mount (guarantees token is always saved) ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const authToken = await getToken();
+        if (!authToken) return;
+
+        // Explicitly request Android 13+ notification permission
+        if (Platform.OS === 'android' && Platform.Version >= 33) {
+          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.warn('⚠️ Android 13+ Notification permission denied by user');
+          }
+        }
+
+        const fcmToken = await messaging().getToken();
+        if (fcmToken) {
+          await registerFcmToken(authToken, fcmToken);
+          console.log('✅ FCM token registered on Home mount');
+        }
+      } catch (e) {
+        console.warn('⚠️ FCM registration on Home failed:', e);
+      }
+    })();
+  }, []);
 
   const handleNavigation = (label: string) => {
     switch (label) {

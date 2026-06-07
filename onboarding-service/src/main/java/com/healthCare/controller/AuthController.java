@@ -27,7 +27,11 @@ public class AuthController {
     @PostMapping("/verify")
     public ResponseEntity<AuthResponse> verify(@Valid @RequestBody VerifyRequest request) {
         try {
-            String token = authService.verifyLogin(request.getEmail(), request.getOtp());
+            String token = authService.verifyLogin(
+                    request.getEmail(),
+                    request.getOtp(),
+                    request.getFcmToken(),    // optional — may be null if not yet available
+                    request.getDeviceType());
             return ResponseEntity.ok(new AuthResponse("Login successful", token));
         } catch (RuntimeException ex) {
             return ResponseEntity.badRequest().body(new AuthResponse(ex.getMessage(), null));
@@ -45,7 +49,11 @@ public class AuthController {
     @PostMapping("/mobile/verify")
     public ResponseEntity<AuthResponse> mobileVerify(@Valid @RequestBody MobileVerifyRequest request) {
         try {
-            String token = authService.verifyMobileLogin(request.getMobileNumber(), request.getOtp());
+            String token = authService.verifyMobileLogin(
+                    request.getMobileNumber(),
+                    request.getOtp(),
+                    request.getFcmToken(),    // optional — may be null if not yet available
+                    request.getDeviceType());
             return ResponseEntity.ok(new AuthResponse("Login successful", token));
         } catch (RuntimeException ex) {
             return ResponseEntity.badRequest().body(new AuthResponse(ex.getMessage(), null));

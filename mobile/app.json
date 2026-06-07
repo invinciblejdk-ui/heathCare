@@ -1,19 +1,4 @@
 {
-  "expo": {
-    "name": "HealthCare",
-    "slug": "healthcare-mobile",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "com.healthcare.mobile"
-    },
-    "android": {
-      "package": "com.healthcare.mobile"
-    },
-    "plugins": [
-      "expo-asset"
-    ]
-  }
+  "name": "HealthCare",
+  "displayName": "MediCart"
 }

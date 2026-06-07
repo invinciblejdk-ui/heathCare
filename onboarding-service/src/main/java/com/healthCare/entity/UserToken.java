@@ -32,6 +32,23 @@ public class UserToken {
     @Column(nullable = false)
     private LocalDateTime expiryTime;
 
+    /**
+     * Firebase Cloud Messaging device registration token.
+     * Sent by the mobile/web app after login and stored here
+     * so the notification-service can push to the right device.
+     * Nullable — desktop/web clients may not provide one.
+     */
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
+    /**
+     * Type of device: ANDROID, IOS, WEB.
+     * Defaults to ANDROID if not provided.
+     */
+    @Column(name = "device_type", length = 20)
+    @Builder.Default
+    private String deviceType = "ANDROID";
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

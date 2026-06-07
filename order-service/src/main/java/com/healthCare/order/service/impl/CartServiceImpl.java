@@ -7,6 +7,7 @@ import com.healthCare.order.entity.CartItem;
 import com.healthCare.order.entity.User;
 import com.healthCare.order.repository.CartRepository;
 import com.healthCare.order.service.CartService;
+import com.healthCare.order.kafka.NotificationKafkaProducer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,9 +19,11 @@ import java.util.stream.Collectors;
 public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
+    private final NotificationKafkaProducer notificationProducer;
 
-    public CartServiceImpl(CartRepository cartRepository) {
+    public CartServiceImpl(CartRepository cartRepository, NotificationKafkaProducer notificationProducer) {
         this.cartRepository = cartRepository;
+        this.notificationProducer = notificationProducer;
     }
 
     @Override
@@ -53,7 +56,18 @@ public class CartServiceImpl implements CartService {
                             cart.getItems().add(item);
                         }
                 );
-        return toDTO(cartRepository.save(cart));
+        cartRepository.save(cart);
+
+        // 🔔 Publish Kafka notification event — async, non-blocking
+        try {
+            notificationProducer.publishCartUpdate(userId, req.getMedicineName());
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Failed to publish cart update: " + e.getMessage());
+            // NEVER fail the add-to-cart operation if Kafka is unavailable
+        }
+
+        return toDTO(cart);
     }
 
     @Override

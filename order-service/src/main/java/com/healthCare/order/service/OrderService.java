@@ -5,7 +5,10 @@ import com.healthCare.order.dto.PlaceOrderRequest;
 import com.healthCare.order.entity.Cart;
 import com.healthCare.order.entity.Order;
 import com.healthCare.order.entity.OrderItem;
+import com.healthCare.order.kafka.NotificationKafkaProducer;
 import com.healthCare.order.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -21,14 +24,18 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
     private final OrderRepository orderRepository;
     private final CartService cartService;
-    private final org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
+    private final NotificationKafkaProducer notificationProducer;
 
-    public OrderService(OrderRepository orderRepository, CartService cartService, org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder) {
+    public OrderService(OrderRepository orderRepository,
+                        CartService cartService,
+                        NotificationKafkaProducer notificationProducer) {
         this.orderRepository = orderRepository;
         this.cartService = cartService;
-        this.webClientBuilder = webClientBuilder;
+        this.notificationProducer = notificationProducer;
     }
 
     @Transactional
@@ -36,37 +43,6 @@ public class OrderService {
         Cart cart = cartService.getOrCreateCart(userId);
         if (cart.getItems().isEmpty()) {
             throw new RuntimeException("Cart is empty");
-        }
-
-        // Check and deduct stock from Medicine Catalog Service
-        List<com.healthCare.order.dto.DeductStockRequest> deductRequests = cart.getItems().stream()
-                .map(item -> new com.healthCare.order.dto.DeductStockRequest(item.getMedicineId(), item.getQuantity()))
-                .collect(Collectors.toList());
-        
-        String authHeader = null;
-        org.springframework.web.context.request.RequestAttributes attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
-        if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes) {
-            authHeader = ((org.springframework.web.context.request.ServletRequestAttributes) attrs).getRequest().getHeader("Authorization");
-        }
-
-        try {
-            org.springframework.web.reactive.function.client.WebClient.RequestBodySpec reqSpec = webClientBuilder.build().post()
-                    .uri("http://medicine-catalog-service/restful/v1/catalog/deduct-stock");
-            if (authHeader != null) {
-                reqSpec.header("Authorization", authHeader);
-            }
-            reqSpec.bodyValue(deductRequests)
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
-            // Forward the exact error (e.g. 400 Bad Request) from the catalog service
-            throw new org.springframework.web.server.ResponseStatusException(e.getStatusCode(), "Catalog Error: " + e.getResponseBodyAsString());
-        } catch (Exception e) {
-            // Fallback for network issues
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, 
-                    "Failed to place order: Catalog service unavailable.", e);
         }
 
         BigDecimal total = cart.getItems().stream()
@@ -92,32 +68,21 @@ public class OrderService {
                 .build()).collect(Collectors.toList());
 
         order.setItems(orderItems);
-        Order savedOrder = orderRepository.save(order);
+        Order saved = orderRepository.save(order);
 
         // Clear cart after placing order
         cartService.clearCart(userId);
 
-        // Send Push Notification Asynchronously (fire and forget)
+        // 🔔 Publish Kafka notification event — async, non-blocking
+        // email not available at this layer; notification-service will still send FCM push
         try {
-            java.util.Map<String, String> pushPayload = new java.util.HashMap<>();
-            pushPayload.put("title", "Order Placed Successfully!");
-            pushPayload.put("message", "Your order #" + savedOrder.getId() + " has been successfully placed.");
-            pushPayload.put("topic", "user_" + userId); // Send to a user-specific topic
-
-            org.springframework.web.reactive.function.client.WebClient.RequestBodySpec notifSpec = webClientBuilder.build().post()
-                    .uri("http://notification-service/api/notifications/push");
-            if (authHeader != null) {
-                notifSpec.header("Authorization", authHeader);
-            }
-            notifSpec.bodyValue(pushPayload)
-                    .retrieve()
-                    .toBodilessEntity()
-                    .subscribe(); // subscribe() makes it async (fire and forget)
+            notificationProducer.publishOrderPlaced(userId, saved.getId(), null);
         } catch (Exception e) {
-            // Ignore notification failure
+            // NEVER fail the order if Kafka is unavailable
+            log.warn("⚠️ Could not publish Kafka notification for order #{}: {}", saved.getId(), e.getMessage());
         }
 
-        return toResponse(savedOrder);
+        return toResponse(saved);
     }
 
     public OrderResponse getOrder(Long orderId, Long userId) {
@@ -146,7 +111,16 @@ public class OrderService {
             throw new RuntimeException("Cannot cancel order that has already been shipped/delivered");
         }
         order.setStatus(Order.OrderStatus.CANCELLED);
-        return toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        // 🔔 Publish cancellation notification
+        try {
+            notificationProducer.publishOrderCancelled(userId, orderId, null);
+        } catch (Exception e) {
+            log.warn("⚠️ Could not publish Kafka cancellation notification for order #{}: {}", orderId, e.getMessage());
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional
@@ -154,7 +128,16 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         order.setStatus(Order.OrderStatus.valueOf(status.toUpperCase()));
-        return toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        // 🔔 Publish status change notification (e.g., admin marks order as SHIPPED)
+        try {
+            notificationProducer.publishOrderStatusUpdate(order.getUserId(), orderId, status, null);
+        } catch (Exception e) {
+            log.warn("⚠️ Could not publish Kafka status notification for order #{}: {}", orderId, e.getMessage());
+        }
+
+        return toResponse(saved);
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
@@ -184,7 +167,6 @@ public class OrderService {
             }).collect(Collectors.toList()));
         }
 
-        // Build simple tracking timeline from current status
         res.setTrackingTimeline(buildTimeline(o));
         return res;
     }

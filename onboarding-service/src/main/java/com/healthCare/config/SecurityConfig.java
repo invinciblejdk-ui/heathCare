@@ -29,6 +29,7 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/restful/v1/auth/**",
                                 "/restful/v1/onboarding/**",
+                                "/api/internal/**",   // internal service-to-service calls (e.g., FCM token lookup)
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
